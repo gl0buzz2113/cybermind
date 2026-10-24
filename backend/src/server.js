@@ -33,14 +33,18 @@ app.get('/health', (req, res) => {
 // Подключаем основные маршруты
 app.use('/api', apiRoutes);
 
-const server = app.listen(PORT, () => {
-    console.log(`🚀 Бэкенд кликера успешно запущен на порту ${PORT}`);
-});
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
+    const server = app.listen(PORT, () => {
+        console.log(`🚀 Бэкенд кликера успешно запущен на порту ${PORT}`);
+    });
 
-server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-        console.error(`❌ Порт ${PORT} уже занят другим процессом Node.js!`);
-    } else {
-        console.error('❌ Ошибка запуска сервера:', err);
-    }
-});
+    server.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+            console.error(`❌ Порт ${PORT} уже занят другим процессом Node.js!`);
+        } else {
+            console.error('❌ Ошибка запуска сервера:', err);
+        }
+    });
+}
+
+export default app;
