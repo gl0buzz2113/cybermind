@@ -358,6 +358,43 @@ export const useGameStore = create((set, get) => {
             }
         },
 
+        // Накопленная локальная дельта кликов за последние 3 секунды для отправки в RPC
+        localDelta: 0,
+
+        consumeDelta: () => {
+            const delta = get().localDelta;
+            set({ localDelta: 0 });
+            return delta;
+        },
+
+        restoreDelta: (delta) => {
+            if (delta > 0) {
+                set((state) => ({ localDelta: state.localDelta + delta }));
+            }
+        },
+
+        // Жестко применить авторитетный баланс из базы (с сохранением любых новых кликов, сделанных во время запроса)
+        applyAuthoritativeBalance: (serverBalance) => {
+            set((state) => {
+                const authoritativeNum = Number(serverBalance);
+                if (!Number.isFinite(authoritativeNum)) return {};
+
+                // Отображаемый баланс = подтвержденная база + дельта текущего 3-сек интервала
+                const newDisplayBalance = authoritativeNum + state.localDelta;
+                const tier = getLevelInfo(newDisplayBalance);
+
+                const nextUser = {
+                    ...state.user,
+                    balance: newDisplayBalance,
+                    level: tier.level,
+                    level_name: tier.name,
+                };
+
+                saveLocalData(nextUser, state.boostLevels);
+                return { user: nextUser };
+            });
+        },
+
         // Клик по ядру
         click: (multiplier = 1) => {
             const { user, boostLevels } = get();
@@ -393,7 +430,10 @@ export const useGameStore = create((set, get) => {
             };
 
             saveLocalData(updatedUser, boostLevels);
-            set({ user: updatedUser });
+            set((state) => ({
+                user: updatedUser,
+                localDelta: state.localDelta + pointsEarned,
+            }));
 
             return { success: true, earned: pointsEarned, multiplier: actualMultiplier };
         },
@@ -401,7 +441,8 @@ export const useGameStore = create((set, get) => {
         // Ежесекундный игровой цикл: пассивный доход + регенерация энергии
         tick: () => {
             const { user, boostLevels } = get();
-            const nextBalance = Number(user.balance) + (user.passive_income || 0);
+            const passiveEarned = Number(user.passive_income || 0);
+            const nextBalance = Number(user.balance) + passiveEarned;
             const nextEnergy = Math.min(
                 user.max_energy,
                 user.energy + (user.energy_regen_rate || 1)
@@ -418,7 +459,10 @@ export const useGameStore = create((set, get) => {
             };
 
             saveLocalData(updatedUser, boostLevels);
-            set({ user: updatedUser });
+            set((state) => ({
+                user: updatedUser,
+                localDelta: state.localDelta + passiveEarned,
+            }));
         },
 
         // Сеттер профиля из бэкенда (единый источник истины для кроссплатформенного аккаунта)
@@ -427,18 +471,22 @@ export const useGameStore = create((set, get) => {
                 const targetUserId = userData.id || state.user.id;
 
                 const serverBalance = Number(userData.balance ?? 0);
-                const serverClickPower = Number(userData.click_power || 1);
-                const serverPassiveIncome = Number(userData.passive_income ?? 0);
-                const serverMaxEnergy = Number(userData.max_energy || 1000);
-                const serverEnergy = Number(userData.energy ?? serverMaxEnergy);
+                const localBalance = Number(state.user.balance || 0);
+                // Защита от сброса прогресса в 0 при повторном входе
+                const authoritativeBalance = Math.max(serverBalance, localBalance);
 
-                const tier = getLevelInfo(serverBalance);
+                const serverClickPower = Number(userData.click_power || state.user.click_power || 1);
+                const serverPassiveIncome = Number(userData.passive_income ?? state.user.passive_income ?? 0);
+                const serverMaxEnergy = Number(userData.max_energy || state.user.max_energy || 1000);
+                const serverEnergy = Number(userData.energy ?? state.user.energy ?? serverMaxEnergy);
+
+                const tier = getLevelInfo(authoritativeBalance);
 
                 const nextUser = {
                     ...state.user,
                     ...userData,
                     id: targetUserId,
-                    balance: serverBalance,
+                    balance: authoritativeBalance,
                     click_power: serverClickPower,
                     passive_income: serverPassiveIncome,
                     max_energy: serverMaxEnergy,

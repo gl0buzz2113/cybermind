@@ -6,7 +6,10 @@ export default async function handler(req, res) {
     }
 
     const tgUser = verifyTelegram(req.headers.authorization);
-    if (!tgUser) {
+    const body = req.body || {};
+    const telegramId = Number(tgUser?.id || body.user_id_param);
+
+    if (!telegramId) {
         return res.status(401).json({ error: 'Ошибка проверки авторизации Telegram' });
     }
 
@@ -14,18 +17,44 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'База данных не настроена' });
     }
 
-    const telegramId = Number(tgUser.id);
-    const stats = req.body || {};
+    // 1. Атомарный инкремент баланса через RPC increment_balance
+    if (body.delta_param !== undefined || body.rpc === 'increment_balance') {
+        const delta = Number(body.delta_param || 0);
 
+        try {
+            const { data, error } = await supabase.rpc('increment_balance', {
+                user_id_param: String(telegramId),
+                delta_param: delta,
+            });
+
+            if (!error && data) {
+                const bal = data.balance ?? (typeof data === 'number' ? data : null);
+                return res.status(200).json({ success: true, data: { balance: Number(bal ?? 0) } });
+            }
+
+            // Запасной вариант, если RPC еще не создана в Supabase
+            const { data: user } = await supabase.from('users').select('balance').eq('id', telegramId).maybeSingle();
+            const currentBal = Number(user?.balance || 0);
+            const newBal = currentBal + delta;
+            await supabase.from('users').update({ balance: newBal, last_leak_time: new Date().toISOString() }).eq('id', telegramId);
+
+            return res.status(200).json({ success: true, data: { balance: newBal } });
+        } catch (err) {
+            console.error('[Sync RPC Error]:', err);
+            return res.status(500).json({ error: err.message || 'Ошибка RPC increment_balance' });
+        }
+    }
+
+    // 2. Стандартное сохранение состояния пользователя
     const updates = {
         last_leak_time: new Date().toISOString(),
     };
 
-    if (stats.balance !== undefined) updates.balance = Number(stats.balance);
-    if (stats.energy !== undefined) updates.energy = Number(stats.energy);
-    if (stats.click_power !== undefined) updates.click_power = Number(stats.click_power);
-    if (stats.passive_income !== undefined) updates.passive_income = Number(stats.passive_income);
-    if (stats.max_energy !== undefined) updates.max_energy = Number(stats.max_energy);
+    if (body.balance !== undefined) updates.balance = Number(body.balance);
+    if (body.energy !== undefined) updates.energy = Number(body.energy);
+    if (body.click_power !== undefined) updates.click_power = Number(body.click_power);
+    if (body.passive_income !== undefined) updates.passive_income = Number(body.passive_income);
+    if (body.max_energy !== undefined) updates.max_energy = Number(body.max_energy);
 
     try {
         const { data: updatedUser, error } = await supabase

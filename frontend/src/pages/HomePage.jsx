@@ -9,6 +9,7 @@ import { BottomNav } from '../components/layout/BottomNav';
 import { BoostsPage } from './BoostsPage';
 import { FriendsPage } from './FriendsPage';
 import { syncProgressToServer, loginWithTelegram } from '../api/client';
+import { supabase } from '../supabase';
 
 /**
  * HomePage - Главный экран ИИ-кликера.
@@ -28,6 +29,10 @@ export const HomePage = () => {
     const activeTab = useGameStore((state) => state.activeTab);
     const [isStudioFolded, setIsStudioFolded] = useState(false);
 
+    const consumeDelta = useGameStore((state) => state.consumeDelta);
+    const restoreDelta = useGameStore((state) => state.restoreDelta);
+    const applyAuthoritativeBalance = useGameStore((state) => state.applyAuthoritativeBalance);
+
     // Запуск игрового цикла (тикера) каждую 1 секунду
     useEffect(() => {
         const intervalId = setInterval(() => {
@@ -41,42 +46,64 @@ export const HomePage = () => {
     const userRef = useRef(user);
     userRef.current = user;
 
-    // Периодическое сохранение прогресса игрока на бэкенд и при выходе/сворачивании
-    const lastSavedRef = useRef({ balance: user.balance, energy: user.energy });
+    // Атомарная RPC-синхронизация кликов и баланса каждые 3 секунды
     useEffect(() => {
-        const syncCurrentState = () => {
+        let isSyncing = false;
+
+        const syncWithRpc = async () => {
+            if (isSyncing) return;
             const current = userRef.current;
-            if (
-                current?.id &&
-                (current.balance !== lastSavedRef.current.balance ||
-                    current.energy !== lastSavedRef.current.energy)
-            ) {
-                lastSavedRef.current = { balance: current.balance, energy: current.energy };
-                syncProgressToServer(current.balance, current.energy).catch((err) => {
-                    console.debug('[Sync debug]:', err.message);
+            if (!current?.id) return;
+
+            isSyncing = true;
+            const localDelta = consumeDelta();
+
+            try {
+                // Раз в 3 секунды вызываем нашу RPC-функцию:
+                // Важно: Если localDelta равна 0, запрос всё равно отправляется (с delta_param: 0),
+                // чтобы просто забрать из data свежий актуальный баланс, который мог измениться с другого устройства.
+                const { data, error } = await supabase.rpc('increment_balance', {
+                    user_id_param: String(current.id),
+                    delta_param: localDelta,
                 });
+
+                if (!error && data) {
+                    const freshBalance = data.balance ?? (typeof data === 'number' ? data : null);
+                    if (freshBalance !== null && Number.isFinite(Number(freshBalance))) {
+                        // Полученный из базы data.balance жестко перезаписывает отображаемый баланс на экране
+                        applyAuthoritativeBalance(Number(freshBalance));
+                    }
+                } else if (error) {
+                    console.debug('[RPC increment_balance Error]:', error.message);
+                    restoreDelta(localDelta);
+                }
+            } catch (err) {
+                console.debug('[RPC increment_balance Exception]:', err.message);
+                restoreDelta(localDelta);
+            } finally {
+                isSyncing = false;
             }
         };
 
-        // Запускаем непрерывный интервал каждые 2 секунды (не перезапускается на каждом тике)
-        const syncInterval = setInterval(syncCurrentState, 2000);
+        // Запускаем непрерывный интервал ровно раз в 3 секунды
+        const syncInterval = setInterval(syncWithRpc, 3000);
 
-        // Мгновенная синхронизация при сворачивании приложения в Telegram или закрытии
+        // Мгновенная синхронизация при сворачивании приложения в Telegram или закрытии вкладки
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'hidden') {
-                syncCurrentState();
+                syncWithRpc();
             }
         };
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
-        window.addEventListener('beforeunload', syncCurrentState);
+        window.addEventListener('beforeunload', syncWithRpc);
 
         return () => {
             clearInterval(syncInterval);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
-            window.removeEventListener('beforeunload', syncCurrentState);
+            window.removeEventListener('beforeunload', syncWithRpc);
         };
-    }, []);
+    }, [consumeDelta, restoreDelta, applyAuthoritativeBalance]);
 
     // Расчет пассивного дохода в час
     const hourlyIncome = (user.passive_income || 0) * 3600;
@@ -149,7 +176,7 @@ export const HomePage = () => {
 
                     <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-950/50 border border-purple-500/30 text-[10px] font-orbitron font-semibold text-purple-300">
                         <ShieldCheck className="w-3 h-3 text-purple-400" />
-                        <span>DEMO 1.0</span>
+                        <span>DEMO 1.5</span>
                     </div>
                 </div>
 
