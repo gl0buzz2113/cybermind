@@ -66,22 +66,26 @@ function App() {
     }
 
     // Экран ошибки
-    if (error) {
-        return (
             <div className="flex h-screen flex-col items-center justify-center bg-[#121214] p-6 text-center text-rose-400">
-                <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/40 max-w-sm">
-                    <h2 className="font-orbitron text-lg font-bold mb-2">ОШИБКА ДОСТУПА</h2>
-                    <p className="text-sm text-slate-300 mb-4">{error}</p>
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="px-4 py-2 rounded-xl bg-rose-600/30 text-rose-200 border border-rose-500/40 text-xs font-bold font-orbitron"
-                    >
-                        ПОВТОРИТЬ
-                    </button>
+                <div className="p-5 rounded-2xl bg-rose-950/40 border border-rose-500/40 max-w-sm w-full">
+                    <h2 className="font-orbitron text-lg font-bold mb-2 text-rose-300">ОШИБКА ПОДКЛЮЧЕНИЯ</h2>
+                    <p className="text-xs text-slate-300 mb-5 break-words text-left leading-relaxed">{error}</p>
+                    <div className="flex flex-col gap-2">
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="w-full py-2.5 rounded-xl bg-rose-600/30 text-rose-200 border border-rose-500/40 text-xs font-bold font-orbitron hover:bg-rose-600/40"
+                        >
+                            ПОВТОРИТЬ
+                        </button>
+                        <button
+                            onClick={() => setError(null)}
+                            className="w-full py-2.5 rounded-xl bg-cyan-950/40 text-cyan-300 border border-cyan-500/40 text-xs font-bold font-orbitron hover:bg-cyan-900/40"
+                        >
+                            ОФЛАЙН / ДЕМО-РЕЖИМ
+                        </button>
+                    </div>
                 </div>
             </div>
-        );
-    }
 
     return (
         <div className="relative min-h-screen bg-[#121214]">
