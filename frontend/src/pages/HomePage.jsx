@@ -6,6 +6,8 @@ import { ClickerZone } from '../components/game/ClickerZone';
 import { EnergyBar } from '../components/game/EnergyBar';
 import { FloatingText } from '../components/game/FloatingText';
 import { BottomNav } from '../components/layout/BottomNav';
+import { BoostsPage } from './BoostsPage';
+import { FriendsPage } from './FriendsPage';
 import { syncProgressToServer } from '../api/client';
 
 /**
@@ -162,73 +164,16 @@ export const HomePage = () => {
                 </div>
             </header>
 
-            {/* ===================== ЦЕНТРАЛЬНАЯ КЛИК-ЗОНА ===================== */}
-            <main className="relative z-10 flex-1 flex flex-col items-center justify-center my-2">
-                {activeTab === 'home' && (
-                    <ClickerZone />
-                )}
-
-                {/* Вкладка Бустов (если выбрана) */}
-                {activeTab === 'boosts' && (
-                    <div className="w-full max-w-md px-4 py-8 text-center">
-                        <div className="rounded-2xl bg-[#161620]/90 border border-purple-500/30 p-6 shadow-[0_0_30px_rgba(168,85,247,0.2)]">
-                            <h2 className="font-orbitron text-xl font-bold text-purple-300 mb-2">
-                                🚀 НЕЙРО-УСКОРИТЕЛИ
-                            </h2>
-                            <p className="text-sm text-slate-400 mb-4">
-                                Модернизируйте алгоритмы вычислений и множитель тапа.
-                            </p>
-                            <div className="space-y-3 text-left">
-                                <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex justify-between items-center">
-                                    <div>
-                                        <p className="font-bold text-sm text-white">Квантовый клик (+1)</p>
-                                        <p className="text-xs text-slate-400">Стоимость: 500 поинтов</p>
-                                    </div>
-                                    <button className="px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs font-bold font-orbitron">
-                                        LVL UP
-                                    </button>
-                                </div>
-                                <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex justify-between items-center">
-                                    <div>
-                                        <p className="font-bold text-sm text-white">Авто-майнер (+5/сек)</p>
-                                        <p className="text-xs text-slate-400">Стоимость: 2,500 поинтов</p>
-                                    </div>
-                                    <button className="px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/40 text-xs font-bold font-orbitron">
-                                        LVL UP
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Вкладка Друзей (если выбрана) */}
-                {activeTab === 'friends' && (
-                    <div className="w-full max-w-md px-4 py-8 text-center">
-                        <div className="rounded-2xl bg-[#161620]/90 border border-cyan-500/30 p-6 shadow-[0_0_30px_rgba(0,240,255,0.2)]">
-                            <h2 className="font-orbitron text-xl font-bold text-cyan-300 mb-2">
-                                👥 РЕФЕРАЛЬНЫЙ СИНДИКАТ
-                            </h2>
-                            <p className="text-sm text-slate-400 mb-4">
-                                Приглашайте друзей и получайте <b className="text-cyan-300">+5,000</b> поинтов за каждого агента!
-                            </p>
-                            <button
-                                onClick={() => {
-                                    const shareUrl = `https://t.me/share/url?url=https://t.me/YourBot?startapp=ref_${user.id || '123'}&text=Вступай в кибер-синдикат ИИ!`;
-                                    window.open(shareUrl, '_blank');
-                                }}
-                                className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-fuchsia-600 font-orbitron font-bold text-sm text-white shadow-[0_0_20px_rgba(0,240,255,0.4)] active:scale-95 transition-transform"
-                            >
-                                ПРИГЛАСИТЬ ДРУГА
-                            </button>
-                        </div>
-                    </div>
-                )}
+            {/* ===================== ЦЕНТРАЛЬНАЯ КЛИК-ЗОНА / ВКЛАДКИ ===================== */}
+            <main className="relative z-10 flex-1 flex flex-col items-center justify-center my-2 w-full">
+                {activeTab === 'home' && <ClickerZone />}
+                {activeTab === 'boosts' && <BoostsPage />}
+                {activeTab === 'friends' && <FriendsPage />}
             </main>
 
             {/* ===================== ФУТЕР: ЭНЕРГИЯ ===================== */}
             <footer className="relative z-10 w-full max-w-md mx-auto px-4 mb-2">
-                <EnergyBar />
+                {activeTab === 'home' && <EnergyBar />}
             </footer>
 
             {/* ===================== НАВИГАЦИЯ ===================== */}

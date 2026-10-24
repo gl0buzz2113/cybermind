@@ -29,23 +29,27 @@ export const authenticateUser = async (req, res) => {
         // СЦЕНАРИЙ А: Пользователь уже существует -> считаем офлайн-доход и энергию
         // =========================================================================
         if (existingUser) {
-            const lastLeakDate = new Date(existingUser.last_leak_time);
-            const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - lastLeakDate.getTime()) / 1000));
+            const passiveIncome = Number(existingUser.passive_income || 0);
+            const lastLeakDate = existingUser.last_leak_time ? new Date(existingUser.last_leak_time) : now;
+            const validLeakTime = Number.isFinite(lastLeakDate.getTime()) ? lastLeakDate.getTime() : now.getTime();
+            const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - validLeakTime) / 1000));
 
             // Ограничиваем время офлайн-дохода (например, максимум 3 часа)
             const effectiveOfflineSeconds = Math.min(elapsedSeconds, MAX_OFFLINE_SECONDS);
 
             // Считаем сколько нафармил пассивный доход
-            const offlineEarned = effectiveOfflineSeconds * existingUser.passive_income;
+            const offlineEarned = effectiveOfflineSeconds * passiveIncome;
 
             // Считаем сколько восстановилось энергии
             const regeneratedEnergy = elapsedSeconds * ENERGY_REGEN_PER_SEC;
+            const maxEnergy = Number(existingUser.max_energy || 1000);
+            const currentEnergy = Number(existingUser.energy ?? maxEnergy);
             const newEnergy = Math.min(
-                existingUser.max_energy,
-                existingUser.energy + regeneratedEnergy
+                maxEnergy,
+                currentEnergy + regeneratedEnergy
             );
 
-            const newBalance = Number(existingUser.balance) + offlineEarned;
+            const newBalance = Number(existingUser.balance || 0) + offlineEarned;
 
             // Обновляем данные пользователя в БД и актуализируем last_leak_time
             const { data: updatedUser, error: updateError } = await supabase

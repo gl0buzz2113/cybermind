@@ -50,10 +50,14 @@ export const loginWithTelegram = async () => {
     }
 };
 
-export const syncProgressToServer = async (balance, energy) => {
+export const syncProgressToServer = async (statsOrBalance, maybeEnergy) => {
     const tg = window.Telegram?.WebApp;
     const initData = tg?.initData || 'dev_mode';
     const targetUrl = `${API_URL}/api/sync`;
+
+    const bodyPayload = typeof statsOrBalance === 'object'
+        ? statsOrBalance
+        : { balance: statsOrBalance, energy: maybeEnergy };
 
     try {
         const response = await fetch(targetUrl, {
@@ -63,7 +67,7 @@ export const syncProgressToServer = async (balance, energy) => {
                 'Content-Type': 'application/json',
                 'Authorization': `tma ${initData}`,
             },
-            body: JSON.stringify({ balance, energy }),
+            body: JSON.stringify(bodyPayload),
         });
 
         if (!response.ok) {

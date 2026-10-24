@@ -1,12 +1,12 @@
 import { supabase } from '../config/supabase.js';
 
 /**
- * Синхронизация игрового прогресса (баланс и энергия) с базой данных Supabase
+ * Синхронизация игрового прогресса (баланс, энергия, бусты, клики, пассивный доход) с Supabase
  */
 export const syncProgress = async (req, res) => {
     try {
         const telegramId = Number(req.telegramUser?.id);
-        const { balance, energy } = req.body;
+        const { balance, energy, click_power, passive_income, max_energy } = req.body;
 
         if (!telegramId) {
             return res.status(401).json({ error: 'Пользователь не авторизован' });
@@ -18,13 +18,28 @@ export const syncProgress = async (req, res) => {
 
         const now = new Date();
 
+        // Формируем объект обновлений
+        const updatePayload = {
+            balance: Math.max(0, Number(balance)),
+            energy: Math.max(0, Number(energy)),
+            last_leak_time: now.toISOString(),
+        };
+
+        if (click_power !== undefined && Number(click_power) > 0) {
+            updatePayload.click_power = Number(click_power);
+        }
+
+        if (passive_income !== undefined && Number(passive_income) >= 0) {
+            updatePayload.passive_income = Number(passive_income);
+        }
+
+        if (max_energy !== undefined && Number(max_energy) > 0) {
+            updatePayload.max_energy = Number(max_energy);
+        }
+
         const { data: updatedUser, error } = await supabase
             .from('users')
-            .update({
-                balance: Math.max(0, Number(balance)),
-                energy: Math.max(0, Number(energy)),
-                last_leak_time: now.toISOString(),
-            })
+            .update(updatePayload)
             .eq('id', telegramId)
             .select()
             .single();
