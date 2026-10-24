@@ -58,6 +58,7 @@ export const syncProgressToServer = async (balance, energy) => {
     try {
         const response = await fetch(targetUrl, {
             method: 'POST',
+            keepalive: true,
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `tma ${initData}`,

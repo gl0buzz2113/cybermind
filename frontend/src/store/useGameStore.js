@@ -1,19 +1,56 @@
 import { create } from 'zustand';
 
-export const useGameStore = create((set, get) => ({
-    // Состояние пользователя / игры (старт с 0)
-    user: {
+const STORAGE_KEY = 'cw_studio_clicker_save';
+
+// Загрузка сохраненного прогресса из localStorage при старте
+const getInitialUser = () => {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            return {
+                id: parsed.id || null,
+                username: parsed.username || 'Оператор',
+                balance: Number(parsed.balance || 0),
+                energy: Number(parsed.energy ?? 1000),
+                max_energy: Number(parsed.max_energy || 1000),
+                click_power: Number(parsed.click_power || 1),
+                passive_income: Number(parsed.passive_income || 0),
+                level: Number(parsed.level || 1),
+                level_name: parsed.level_name || 'LVL 1 CORE',
+                energy_regen_rate: Number(parsed.energy_regen_rate || 1),
+            };
+        }
+    } catch (e) {
+        console.debug('[Storage Load Error]:', e);
+    }
+
+    return {
         id: null,
         username: 'Оператор',
         balance: 0,
         energy: 1000,
         max_energy: 1000,
         click_power: 1,
-        passive_income: 0, // поинтов в секунду (начало без пассивного дохода)
+        passive_income: 0,
         level: 1,
         level_name: 'LVL 1 CORE',
-        energy_regen_rate: 1, // восстановление энергии в сек
-    },
+        energy_regen_rate: 1,
+    };
+};
+
+// Сохранение в localStorage для мгновенного сохранения
+const saveToLocalStorage = (user) => {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+    } catch (e) {
+        console.debug('[Storage Save Error]:', e);
+    }
+};
+
+export const useGameStore = create((set, get) => ({
+    // Состояние пользователя / игры
+    user: getInitialUser(),
 
     // Активная вкладка навигации ('home' | 'boosts' | 'friends')
     activeTab: 'home',
@@ -58,53 +95,73 @@ export const useGameStore = create((set, get) => ({
         const energySpent = user.click_power * actualMultiplier;
         const pointsEarned = energySpent;
 
-        set((state) => ({
-            user: {
-                ...state.user,
-                balance: Number(state.user.balance) + pointsEarned,
-                energy: Math.max(0, state.user.energy - energySpent),
-            },
-        }));
+        const nextBalance = Number(user.balance) + pointsEarned;
+        const nextEnergy = Math.max(0, user.energy - energySpent);
+
+        const updatedUser = {
+            ...user,
+            balance: nextBalance,
+            energy: nextEnergy,
+        };
+
+        saveToLocalStorage(updatedUser);
+
+        set({ user: updatedUser });
 
         return { success: true, earned: pointsEarned, multiplier: actualMultiplier };
     },
 
     // Ежесекундный игровой цикл: пассивный доход + регенерация энергии
     tick: () => {
-        set((state) => {
-            const nextBalance = Number(state.user.balance) + (state.user.passive_income || 0);
-            const nextEnergy = Math.min(
-                state.user.max_energy,
-                state.user.energy + (state.user.energy_regen_rate || 1)
-            );
+        const { user } = get();
+        const nextBalance = Number(user.balance) + (user.passive_income || 0);
+        const nextEnergy = Math.min(
+            user.max_energy,
+            user.energy + (user.energy_regen_rate || 1)
+        );
 
-            return {
-                user: {
-                    ...state.user,
-                    balance: nextBalance,
-                    energy: nextEnergy,
-                },
-            };
-        });
+        const updatedUser = {
+            ...user,
+            balance: nextBalance,
+            energy: nextEnergy,
+        };
+
+        // Сохраняем в localStorage
+        saveToLocalStorage(updatedUser);
+
+        set({ user: updatedUser });
     },
 
-    // Сеттер профиля из бэкенда
+    // Сеттер профиля из бэкенда (с защитой от сброса прогресса)
     setUser: (userData) => {
-        set((state) => ({
-            user: {
+        set((state) => {
+            // Если локальный баланс больше серверного (сервер не успел получить последний клик перед выходом),
+            // оставляем максимальный, чтобы игрок никогда не терял поинты
+            const finalBalance = Math.max(
+                Number(userData.balance ?? 0),
+                Number(state.user.balance ?? 0)
+            );
+
+            const updatedUser = {
                 ...state.user,
                 ...userData,
-            },
-        }));
+                balance: finalBalance,
+            };
+
+            saveToLocalStorage(updatedUser);
+            return { user: updatedUser };
+        });
     },
 
     // Ручное обновление баланса
     addBalance: (amount) => {
-        set((state) => ({
-            user: {
+        set((state) => {
+            const updatedUser = {
                 ...state.user,
                 balance: Number(state.user.balance) + amount,
-            },
-        }));
+            };
+            saveToLocalStorage(updatedUser);
+            return { user: updatedUser };
+        });
     },
 }));

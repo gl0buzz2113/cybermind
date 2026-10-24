@@ -34,24 +34,46 @@ export const HomePage = () => {
         return () => clearInterval(intervalId);
     }, [tick]);
 
-    // Периодическое сохранение прогресса игрока на бэкенд (раз в 3 секунды)
+    // Актуальная ссылка на состояние юзера для таймеров без сброса интервала
+    const userRef = useRef(user);
+    userRef.current = user;
+
+    // Периодическое сохранение прогресса игрока на бэкенд и при выходе/сворачивании
     const lastSavedRef = useRef({ balance: user.balance, energy: user.energy });
     useEffect(() => {
-        const syncInterval = setInterval(() => {
+        const syncCurrentState = () => {
+            const current = userRef.current;
             if (
-                user.id &&
-                (user.balance !== lastSavedRef.current.balance ||
-                    user.energy !== lastSavedRef.current.energy)
+                current?.id &&
+                (current.balance !== lastSavedRef.current.balance ||
+                    current.energy !== lastSavedRef.current.energy)
             ) {
-                lastSavedRef.current = { balance: user.balance, energy: user.energy };
-                syncProgressToServer(user.balance, user.energy).catch((err) => {
+                lastSavedRef.current = { balance: current.balance, energy: current.energy };
+                syncProgressToServer(current.balance, current.energy).catch((err) => {
                     console.debug('[Sync debug]:', err.message);
                 });
             }
-        }, 3000);
+        };
 
-        return () => clearInterval(syncInterval);
-    }, [user.id, user.balance, user.energy]);
+        // Запускаем непрерывный интервал каждые 2 секунды (не перезапускается на каждом тике)
+        const syncInterval = setInterval(syncCurrentState, 2000);
+
+        // Мгновенная синхронизация при сворачивании приложения в Telegram или закрытии
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                syncCurrentState();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('beforeunload', syncCurrentState);
+
+        return () => {
+            clearInterval(syncInterval);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('beforeunload', syncCurrentState);
+        };
+    }, []);
 
     // Расчет пассивного дохода в час
     const hourlyIncome = (user.passive_income || 0) * 3600;
