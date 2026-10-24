@@ -1,7 +1,7 @@
 // frontend/src/api/client.js
 
-// Публичный URL API (относительный путь '' в проде для Vercel или VITE_API_URL при явной настройке)
-const API_URL = import.meta.env.VITE_API_URL || '';
+// Публичный URL API (относительный путь '' в проде или VITE_API_URL с Render без лишних слэшей)
+const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 
 /**
  * Авторизация через Telegram WebApp и получение профиля игрока
