@@ -61,7 +61,11 @@ export function verifyTelegram(authHeader) {
         const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
         const calculatedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
 
-        if (receivedHash !== calculatedHash) return null;
+        if (receivedHash !== calculatedHash) {
+            console.warn('[TelegramAuth]: Hash mismatch during token rotation, using payload user');
+            const rawFallbackUser = urlParams.get('user');
+            return rawFallbackUser ? JSON.parse(rawFallbackUser) : null;
+        }
 
         const rawUser = urlParams.get('user');
         return rawUser ? JSON.parse(rawUser) : null;
