@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Terminal, Flame, TrendingUp, ShieldCheck } from 'lucide-react';
+import { Sparkles, Terminal, Flame, TrendingUp, ShieldCheck, RefreshCw } from 'lucide-react';
 import { useGameStore } from '../store/useGameStore';
 import { ClickerZone } from '../components/game/ClickerZone';
 import { EnergyBar } from '../components/game/EnergyBar';
@@ -8,7 +8,7 @@ import { FloatingText } from '../components/game/FloatingText';
 import { BottomNav } from '../components/layout/BottomNav';
 import { BoostsPage } from './BoostsPage';
 import { FriendsPage } from './FriendsPage';
-import { syncProgressToServer } from '../api/client';
+import { syncProgressToServer, loginWithTelegram } from '../api/client';
 
 /**
  * HomePage - Главный экран ИИ-кликера.

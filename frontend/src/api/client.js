@@ -104,7 +104,11 @@ export const createStarsInvoiceLink = async (boostId) => {
         throw new Error(data.error || 'Не удалось создать счет на оплату Telegram Stars');
     }
 
-    return data.invoiceLink;
+    return {
+        invoiceLink: data.invoiceLink,
+        isTestMode: data.isTestMode,
+        message: data.message,
+    };
 };
 
 /**

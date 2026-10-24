@@ -18,7 +18,10 @@ export const verifyTelegramWebAppData = (req, res, next) => {
             return res.status(401).json({ error: 'Отсутствует строка авторизации initData' });
         }
 
-        const botToken = process.env.BOT_TOKEN;
+        let botToken = process.env.BOT_TOKEN?.trim();
+        if (botToken && botToken.startsWith('1234567890:') && botToken.split(':').length > 2) {
+            botToken = botToken.replace(/^1234567890:/, '');
+        }
         if (!botToken) {
             throw new Error('BOT_TOKEN не настроен на сервере');
         }

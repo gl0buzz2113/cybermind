@@ -42,10 +42,19 @@ export const createStarsInvoice = async (req, res) => {
             return res.status(404).json({ error: 'Буст за Stars не найден' });
         }
 
-        const botToken = process.env.BOT_TOKEN;
-        if (!botToken || botToken.startsWith('1234567890:')) {
-            return res.status(400).json({
-                error: 'Для оплаты Telegram Stars необходимо указать реальный BOT_TOKEN в .env бэкенда',
+        let botToken = process.env.BOT_TOKEN?.trim();
+        if (botToken && botToken.startsWith('1234567890:') && botToken.split(':').length > 2) {
+            botToken = botToken.replace(/^1234567890:/, '');
+        }
+
+        const isDummyToken = !botToken || botToken.startsWith('1234567890:');
+
+        // Если токен еще не заменен на настоящий из BotFather — предлагаем тестовый режим
+        if (isDummyToken) {
+            return res.status(200).json({
+                success: true,
+                isTestMode: true,
+                message: 'Внимание: В backend/.env указан тестовый BOT_TOKEN. Чтобы списывать реальные Stars с баланса Telegram, укажите реальный токен от @BotFather.',
             });
         }
 
@@ -59,6 +68,7 @@ export const createStarsInvoice = async (req, res) => {
                 payload: JSON.stringify({ boostId, telegramId, ts: Date.now() }),
                 currency: 'XTR', // Официальная валюта Telegram Stars
                 prices: [{ label: boost.title, amount: boost.starsPrice }],
+                provider_token: '', // Для валюты XTR строго требуется пустая строка ""
             }),
         });
 
@@ -73,6 +83,7 @@ export const createStarsInvoice = async (req, res) => {
 
         return res.status(200).json({
             success: true,
+            isTestMode: false,
             invoiceLink: data.result,
         });
     } catch (error) {

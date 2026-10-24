@@ -296,12 +296,28 @@ export const useGameStore = create((set, get) => {
             }
 
             try {
-                // 1. Создаем официальную ссылку на инвойс Stars через Telegram Bot API
-                const invoiceLink = await createStarsInvoiceLink(boostId);
+                // 1. Создаем ссылку на инвойс Stars через Telegram Bot API
+                const invoiceData = await createStarsInvoiceLink(boostId);
+
+                // Если бэкенд в тестовом режиме (BOT_TOKEN еще не указан в backend/.env)
+                if (invoiceData.isTestMode) {
+                    const confirmTest = window.confirm(
+                        `⭐ Внимание: На бэкенде еще не указан реальный BOT_TOKEN от @BotFather (настоящее списание Stars недоступно).\n\nХотите активировать "${config.title}" в тестовом режиме для проверки?`
+                    );
+                    if (!confirmTest) return { success: false, reason: 'Отменено' };
+
+                    const updatedUser = await confirmStarsPayment(boostId);
+                    if (updatedUser) {
+                        get().setUser(updatedUser);
+                    }
+                    triggerHaptic('success');
+                    alert(`✨ Тестовый буст "${config.title}" успешно активирован!`);
+                    return { success: true };
+                }
 
                 // 2. Открываем нативную шторку оплаты Telegram Stars
                 return new Promise((resolve) => {
-                    tg.openInvoice(invoiceLink, async (status) => {
+                    tg.openInvoice(invoiceData.invoiceLink, async (status) => {
                         if (status === 'paid') {
                             // Оплата реально списана в Telegram!
                             triggerHaptic('success');
