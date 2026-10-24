@@ -48,6 +48,30 @@ function App() {
         };
 
         initApp();
+
+        // Авто-синхронизация при возвращении в приложение (например, после игры на телефоне или ПК)
+        const recheckProfile = async () => {
+            try {
+                const data = await loginWithTelegram();
+                if (data && data.user) {
+                    setUser(data.user);
+                }
+            } catch {}
+        };
+
+        const handleVisibility = () => {
+            if (document.visibilityState === 'visible') {
+                recheckProfile();
+            }
+        };
+
+        window.addEventListener('focus', recheckProfile);
+        document.addEventListener('visibilitychange', handleVisibility);
+
+        return () => {
+            window.removeEventListener('focus', recheckProfile);
+            document.removeEventListener('visibilitychange', handleVisibility);
+        };
     }, [setUser]);
 
     // Экран загрузки в неоновом стиле

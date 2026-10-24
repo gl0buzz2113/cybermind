@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { syncProgressToServer } from '../api/client';
+import { syncProgressToServer, createStarsInvoiceLink, confirmStarsPayment } from '../api/client';
 
 export const LEVEL_TIERS = [
     { level: 1, name: 'КВАНТОВЫЙ ЭМБРИОН', minPoints: 0 },
@@ -285,60 +285,52 @@ export const useGameStore = create((set, get) => {
         buyStarsBoost: async (boostId) => {
             const { user } = get();
             const config = STARS_BOOSTS.find((b) => b.id === boostId);
-            if (!config) return { success: false };
+            if (!config) return { success: false, reason: 'Буст не найден' };
 
-            // Запрашиваем подтверждение покупки у пользователя через нативный Telegram диалог
-            const confirmed = window.confirm
-                ? window.confirm(
-                      `Активировать "${config.title}" за ${config.starsPrice} ⭐ Telegram Stars?\n\nЭффект: ${config.desc}`
-                  )
-                : true;
+            const tg = window.Telegram?.WebApp;
 
-            if (!confirmed) {
-                return { success: false, reason: 'Отменено' };
+            // Если не в Telegram — предупреждаем пользователя
+            if (!tg || !tg.openInvoice) {
+                alert(`Оплата за Telegram Stars доступна только внутри мобильного или десктопного приложения Telegram.`);
+                return { success: false, reason: 'Только в приложении Telegram' };
             }
 
-            let nextClickPower = user.click_power;
-            let nextPassiveIncome = user.passive_income;
-            let nextMaxEnergy = user.max_energy;
-            let nextEnergy = user.energy;
-            let nextRegen = user.energy_regen_rate;
+            try {
+                // 1. Создаем официальную ссылку на инвойс Stars через Telegram Bot API
+                const invoiceLink = await createStarsInvoiceLink(boostId);
 
-            if (config.type === 'click_power') {
-                nextClickPower += config.value;
-            } else if (config.type === 'passive_income') {
-                nextPassiveIncome += config.value;
-            } else if (config.type === 'special_energy') {
-                nextMaxEnergy += config.value;
-                nextEnergy += config.value;
-                nextRegen = Math.max(nextRegen, 5);
+                // 2. Открываем нативную шторку оплаты Telegram Stars
+                return new Promise((resolve) => {
+                    tg.openInvoice(invoiceLink, async (status) => {
+                        if (status === 'paid') {
+                            // Оплата реально списана в Telegram!
+                            triggerHaptic('success');
+                            try {
+                                const updatedUser = await confirmStarsPayment(boostId);
+                                if (updatedUser) {
+                                    get().setUser(updatedUser);
+                                }
+                                alert(`✨ Успешно! Буст "${config.title}" активирован за ${config.starsPrice} ⭐!`);
+                                resolve({ success: true });
+                            } catch (err) {
+                                alert(`Ошибка активации: ${err.message}`);
+                                resolve({ success: false, error: err.message });
+                            }
+                        } else if (status === 'cancelled') {
+                            triggerHaptic('warning');
+                            resolve({ success: false, reason: 'Оплата отменена' });
+                        } else {
+                            triggerHaptic('warning');
+                            alert(`Оплата Stars не завершена (статус: ${status})`);
+                            resolve({ success: false, status });
+                        }
+                    });
+                });
+            } catch (err) {
+                triggerHaptic('warning');
+                alert(err.message || 'Не удалось открыть счет Telegram Stars');
+                return { success: false, error: err.message };
             }
-
-            const nextUser = {
-                ...user,
-                click_power: nextClickPower,
-                passive_income: nextPassiveIncome,
-                max_energy: nextMaxEnergy,
-                energy: nextEnergy,
-                energy_regen_rate: nextRegen,
-            };
-
-            saveLocalData(nextUser, get().boostLevels);
-            set({ user: nextUser });
-
-            triggerHaptic('success');
-
-            if (nextUser.id) {
-                syncProgressToServer({
-                    balance: nextUser.balance,
-                    energy: nextUser.energy,
-                    click_power: nextUser.click_power,
-                    passive_income: nextUser.passive_income,
-                    max_energy: nextUser.max_energy,
-                }).catch(() => {});
-            }
-
-            return { success: true };
         },
 
         // Клик по ядру
@@ -404,59 +396,34 @@ export const useGameStore = create((set, get) => {
             set({ user: updatedUser });
         },
 
-        // Сеттер профиля из бэкенда (с защитой от сброса и синхронизацией по ID)
+        // Сеттер профиля из бэкенда (единый источник истины для кроссплатформенного аккаунта)
         setUser: (userData) => {
             set((state) => {
                 const targetUserId = userData.id || state.user.id;
-                const cachedUser = loadLocalData(targetUserId)?.user;
 
-                // Баланс: берём максимум между локальным хранилищем этого юзера и сервером
-                const finalBalance = Math.max(
-                    Number(userData.balance ?? 0),
-                    Number(cachedUser?.balance ?? state.user.balance ?? 0)
-                );
+                const serverBalance = Number(userData.balance ?? 0);
+                const serverClickPower = Number(userData.click_power || 1);
+                const serverPassiveIncome = Number(userData.passive_income ?? 0);
+                const serverMaxEnergy = Number(userData.max_energy || 1000);
+                const serverEnergy = Number(userData.energy ?? serverMaxEnergy);
 
-                const finalClickPower = Math.max(
-                    Number(userData.click_power || 1),
-                    Number(cachedUser?.click_power || state.user.click_power || 1)
-                );
-
-                const finalPassiveIncome = Math.max(
-                    Number(userData.passive_income ?? 0),
-                    Number(cachedUser?.passive_income ?? state.user.passive_income ?? 0)
-                );
-
-                const finalMaxEnergy = Math.max(
-                    Number(userData.max_energy || 1000),
-                    Number(cachedUser?.max_energy || state.user.max_energy || 1000)
-                );
-
-                const tier = getLevelInfo(finalBalance);
+                const tier = getLevelInfo(serverBalance);
 
                 const nextUser = {
                     ...state.user,
                     ...userData,
-                    balance: finalBalance,
-                    click_power: finalClickPower,
-                    passive_income: finalPassiveIncome,
-                    max_energy: finalMaxEnergy,
-                    energy: Number(userData.energy ?? state.user.energy ?? finalMaxEnergy),
+                    id: targetUserId,
+                    balance: serverBalance,
+                    click_power: serverClickPower,
+                    passive_income: serverPassiveIncome,
+                    max_energy: serverMaxEnergy,
+                    energy: serverEnergy,
                     level: tier.level,
                     level_name: tier.name,
                 };
 
+                // Синхронизируем локальный кэш устройства с единой базой
                 saveLocalData(nextUser, state.boostLevels);
-
-                // Если локальные данные были свежее серверных — сразу синхронизируем сервер
-                if (finalBalance > Number(userData.balance ?? 0) && userData.id) {
-                    syncProgressToServer({
-                        balance: finalBalance,
-                        energy: nextUser.energy,
-                        click_power: finalClickPower,
-                        passive_income: finalPassiveIncome,
-                        max_energy: finalMaxEnergy,
-                    }).catch(() => {});
-                }
 
                 return { user: nextUser };
             });

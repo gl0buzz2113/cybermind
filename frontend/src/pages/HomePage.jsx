@@ -81,7 +81,7 @@ export const HomePage = () => {
     const hourlyIncome = (user.passive_income || 0) * 3600;
 
     return (
-        <div className="relative min-h-screen w-full bg-[#121214] text-white overflow-hidden flex flex-col justify-between cyber-grid select-none pb-24">
+        <div className="relative min-h-screen w-full bg-[#121214] text-white overflow-x-hidden flex flex-col justify-between cyber-grid select-none pb-28">
             {/* Анимированный фоновый неоновый свет */}
             <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[500px] h-[350px] bg-gradient-to-b from-cyan-500/15 via-purple-600/10 to-transparent blur-3xl pointer-events-none" />
 
@@ -119,6 +119,11 @@ export const HomePage = () => {
                             </span>
                             <span className="font-orbitron font-bold text-sm text-slate-100 flex items-center gap-1.5">
                                 @{user.username || 'CyberAgent'}
+                                {user.id && (
+                                    <span className="text-[10px] font-medium text-cyan-400/80">
+                                        #{user.id}
+                                    </span>
+                                )}
                             </span>
                             <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-fuchsia-400 bg-fuchsia-950/40 px-2 py-0.5 rounded-md border border-fuchsia-800/40 w-fit">
                                 <Sparkles className="w-3 h-3 text-fuchsia-400" />

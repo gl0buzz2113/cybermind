@@ -51,7 +51,7 @@ export const BoostsPage = () => {
         : 100;
 
     return (
-        <div className="w-full max-w-md mx-auto px-4 py-4 space-y-5 text-white select-none">
+        <div className="w-full max-w-md mx-auto px-4 py-4 space-y-5 text-white select-none pb-20 touch-pan-y">
             {/* Карточка ранга / уровня ядра */}
             <div className="rounded-3xl bg-[#161622]/90 border border-cyan-500/30 p-5 shadow-[0_0_25px_rgba(0,240,255,0.2)]">
                 <div className="flex items-center justify-between mb-2">
