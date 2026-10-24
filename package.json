@@ -1,0 +1,17 @@
+{
+  "name": "ai-clicker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start:backend": "cd backend && node src/server.js",
+    "start:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run start:backend\" \"npm run start:frontend\""
+  },
+  "dependencies": {
+    "framer-motion": "^14.6.0",
+    "lucide-react": "^1.61.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.5"
+  }
+}
