@@ -26,6 +26,7 @@ export const HomePage = () => {
     const user = useGameStore((state) => state.user);
     const tick = useGameStore((state) => state.tick);
     const activeTab = useGameStore((state) => state.activeTab);
+    const [isStudioFolded, setIsStudioFolded] = useState(false);
 
     // Запуск игрового цикла (тикера) каждую 1 секунду
     useEffect(() => {
@@ -97,10 +98,53 @@ export const HomePage = () => {
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500" />
                         </span>
-                        <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-[10px] font-orbitron font-bold tracking-wider text-cyan-300">
-                            <Terminal className="w-3 h-3 text-cyan-400" />
-                            <span>CW Studio</span>
-                        </div>
+                        <motion.div
+                            onClick={() => {
+                                setIsStudioFolded(true);
+                                try {
+                                    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+                                } catch {}
+                                setTimeout(() => setIsStudioFolded(false), 700);
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-[10px] font-orbitron font-bold tracking-wider text-cyan-300 cursor-pointer select-none"
+                            style={{ perspective: 500 }}
+                            whileHover={{ scale: 0.96 }}
+                            whileTap={{ scale: 0.94 }}
+                            title="CW Studio (нажмите или наведите для сворачивания)"
+                        >
+                            <Terminal className="w-3 h-3 text-cyan-400 shrink-0" />
+                            <motion.span
+                                className="inline-block origin-top overflow-hidden"
+                                animate={isStudioFolded ? {
+                                    scaleY: 0.05,
+                                    rotateX: 85,
+                                    opacity: 0.25,
+                                    y: -1,
+                                } : {
+                                    scaleY: 1,
+                                    rotateX: 0,
+                                    opacity: 1,
+                                    y: 0,
+                                }}
+                                whileHover={{
+                                    scaleY: 0.05,
+                                    rotateX: 85,
+                                    opacity: 0.25,
+                                    y: -1,
+                                    transition: { duration: 0.22, ease: [0.4, 0, 0.2, 1] }
+                                }}
+                                whileTap={{
+                                    scaleY: 0.05,
+                                    rotateX: 85,
+                                    opacity: 0.25,
+                                    y: -1,
+                                    transition: { duration: 0.22, ease: [0.4, 0, 0.2, 1] }
+                                }}
+                                transition={{ type: 'spring', stiffness: 450, damping: 22 }}
+                            >
+                                CW Studio
+                            </motion.span>
+                        </motion.div>
                     </div>
 
                     <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-950/50 border border-purple-500/30 text-[10px] font-orbitron font-semibold text-purple-300">

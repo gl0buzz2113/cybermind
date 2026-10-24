@@ -90,6 +90,8 @@ function App() {
     }
 
     // Экран ошибки
+    if (error) {
+        return (
             <div className="flex h-screen flex-col items-center justify-center bg-[#121214] p-6 text-center text-rose-400">
                 <div className="p-5 rounded-2xl bg-rose-950/40 border border-rose-500/40 max-w-sm w-full">
                     <h2 className="font-orbitron text-lg font-bold mb-2 text-rose-300">ОШИБКА ПОДКЛЮЧЕНИЯ</h2>
@@ -110,6 +112,8 @@ function App() {
                     </div>
                 </div>
             </div>
+        );
+    }
 
     return (
         <div className="relative min-h-screen bg-[#121214]">

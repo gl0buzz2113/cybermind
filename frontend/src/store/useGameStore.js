@@ -289,10 +289,19 @@ export const useGameStore = create((set, get) => {
 
             const tg = window.Telegram?.WebApp;
 
-            // Если не в Telegram — предупреждаем пользователя
+            // Если не в Telegram — предлагаем симуляцию для тестирования
             if (!tg || !tg.openInvoice) {
-                alert(`Оплата за Telegram Stars доступна только внутри мобильного или десктопного приложения Telegram.`);
-                return { success: false, reason: 'Только в приложении Telegram' };
+                const proceedBrowser = window.confirm(
+                    `⭐ Нативная оплата Telegram Stars (шторка оплаты) работает внутри Telegram.\n\nВы открыли проект в обычном браузере. Активировать "${config.title}" в режиме симулятора?`
+                );
+                if (!proceedBrowser) return { success: false, reason: 'Только в приложении Telegram' };
+                const updatedUser = await confirmStarsPayment(boostId);
+                if (updatedUser) {
+                    get().setUser(updatedUser);
+                }
+                triggerHaptic('success');
+                alert(`✨ Буст "${config.title}" успешно применен!`);
+                return { success: true };
             }
 
             try {
